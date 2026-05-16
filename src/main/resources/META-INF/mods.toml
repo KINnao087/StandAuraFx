@@ -1,0 +1,34 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="standaurafx"
+version="${file.jarVersion}"
+displayName="Stand Aura FX"
+authors="Inza"
+displayTest="IGNORE_SERVER_VERSION"
+description='''
+Client-side visual addon that renders a silver aura shader billboard around ROTP stand entities.
+'''
+
+[[dependencies.standaurafx]]
+modId="forge"
+mandatory=true
+versionRange="[36,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.standaurafx]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.16.5,1.17)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.standaurafx]]
+modId="jojo"
+mandatory=true
+versionRange="[0.2.2,)"
+ordering="AFTER"
+side="CLIENT"

@@ -1,0 +1,45 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# vscode
+.vscode
+
+# gradle
+build
+.gradle
+!gradle/wrapper/gradle-wrapper.jar
+
+# other
+eclipse
+run
+logs
+
+# Files from Forge MDK
+forge*changelog.txt
+
+# dependency jars (keep folder structure, ignore jars)
+libs/*.jar
+libs/local
+
+# decompilation output
+tmp
+
+# os
+.DS_Store
+Thumbs.db
+
+# mc
+crash-reports
+*.log

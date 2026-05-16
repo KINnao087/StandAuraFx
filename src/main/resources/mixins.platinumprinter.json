@@ -1,0 +1,28 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.inza.platinumprinter.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mixins.platinumprinter.refmap.json",
+  "mixins": [
+    "ActionMixin",
+    "ActionsHotbarAccessor",
+    "ActionsHotbarInvoker",
+    "HierophantGreenEmeraldSplashMixin",
+    "HotbarFoldInvoker",
+    "HotbarFoldMixin",
+    "SilverChariotRapierLaunchMixin",
+    "StandActionMixin",
+    "StandEntityActionMixin",
+    "StandEntityTaskMixin",
+    "StandTypeMixin",
+    "StandTypeAccessor"
+  ],
+  "client": [
+    "ActionsOverlayGuiMixin"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

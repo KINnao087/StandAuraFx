@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Recurse -Path \"E:\\\\mc_mod\\\\RotpStandAura\\\\src\\\\main\\\\java\" -File | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse -Path \"E:\\\\mc_mod\\\\RotpStandAura\\\\src\\\\main\\\\resources\\\\assets\" -File | ForEach-Object { $_.FullName })",
+      "PowerShell(java *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Add-Type -AssemblyName System.IO.Compression.FileSystem; $jar = [System.IO.Compression.ZipFile]::OpenRead\\(\"E:\\\\mc_mod\\\\RotpStandAura\\\\libs\\\\JJBA-RipplesOfThePast-1.16.5-0.2.2.2.jar\"\\); $jar.Entries | Where-Object { $_.Name -match 'StandEntity' } | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse -File \"E:\\\\mc_mod\\\\RotpStandAura\\\\tmp\\\\decompiled\" | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"E:\\\\mc_mod\\\\RotpStandAura\\\\run\\\\mods\" -File | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"E:\\\\mc_mod\\\\RotpStandAura\\\\libs\" | ForEach-Object { $_.Name })",
+      "Bash(powershell *)",
+      "PowerShell(Add-Type -AssemblyName System.IO.Compression.FileSystem; $jar = [System.IO.Compression.ZipFile]::OpenRead\\(\"E:\\\\mc_mod\\\\RotpStandAura\\\\libs\\\\JJBA-RipplesOfThePast-1.16.5-0.2.2.2.jar\"\\); $entry = $jar.Entries | Where-Object { $_.Name -match 'mods\\\\.toml|mcmod\\\\.info|pack\\\\.mcmeta' }; $entry | ForEach-Object { Write-Output \"=== $\\($_.FullName\\) ===\"; $stream = $_.Open\\(\\); $reader = New-Object System.IO.StreamReader\\($stream\\); Write-Output $reader.ReadToEnd\\(\\); $reader.Close\\(\\); $stream.Close\\(\\) }; $jar.Dispose\\(\\))"
+    ]
+  }
+}
