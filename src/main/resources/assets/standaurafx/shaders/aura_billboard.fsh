@@ -1,6 +1,8 @@
 #version 120
 
 uniform sampler2D uMaskTex;
+uniform sampler2D uEntityDepthTex;
+uniform sampler2D uSceneDepthTex;
 uniform vec2 uTexelSize;
 uniform vec2 uMaskUvMin;
 uniform vec2 uMaskUvMax;
@@ -48,8 +50,11 @@ varying vec2 vUv;
 
 const float PI = 3.14159265358979323846;
 const int DIRECTION_COUNT = 16;
-const int STEP_COUNT = 32;
+const int STEP_COUNT = 48;
 const float SDF_SEARCH_RADIUS = 0.16;
+const float DEPTH_BIAS = 0.00035;
+const float MASK_THRESHOLD = 0.05;
+const float VALID_DEPTH_MAX = 0.9995;
 
 float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -95,29 +100,82 @@ float sampleMask(vec2 uv) {
     return max(maskColor.a, max(maskColor.r, max(maskColor.g, maskColor.b)));
 }
 
-float sampleMaskAtShape(vec2 p) {
-    vec2 localUv = vec2((p.x / max(uAspect, 0.0001)) * 0.5 + 0.5, p.y * 0.5 + 0.5);
-    return sampleMask(mix(uMaskUvMin, uMaskUvMax, localUv));
+float sampleDepth(sampler2D depthTexture, vec2 uv) {
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        return 1.0;
+    }
+
+    return texture2D(depthTexture, uv).r;
 }
 
-float standAuraSDF(vec2 p) {
-    float centerMask = sampleMaskAtShape(p);
-    float inside = step(0.05, centerMask);
+vec2 shapeToMaskUv(vec2 p) {
+    vec2 localUv = vec2((p.x / max(uAspect, 0.0001)) * 0.5 + 0.5, p.y * 0.5 + 0.5);
+    return mix(uMaskUvMin, uMaskUvMax, localUv);
+}
 
-    float best = 1000.0;
+float sampleEntityDepthAtShape(vec2 p) {
+    vec2 uv = shapeToMaskUv(p);
+    float depth = sampleDepth(uEntityDepthTex, uv);
+    if (depth < VALID_DEPTH_MAX) {
+        return depth;
+    }
 
+    float best = 1.0;
     for (int directionIndex = 0; directionIndex < DIRECTION_COUNT; directionIndex++) {
         float angle = 2.0 * PI * (float(directionIndex) / float(DIRECTION_COUNT));
         vec2 dir = vec2(cos(angle), sin(angle));
 
+        for (int stepIndex = 1; stepIndex <= 4; stepIndex++) {
+            float shapeDist = 0.012 * (float(stepIndex) / 4.0);
+            float nearbyDepth = sampleDepth(uEntityDepthTex, shapeToMaskUv(p + dir * shapeDist));
+            if (nearbyDepth < best) {
+                best = nearbyDepth;
+            }
+        }
+    }
+
+    return best;
+}
+
+float sampleMaskAtShape(vec2 p) {
+    return sampleMask(shapeToMaskUv(p));
+}
+
+float standAuraSDF(vec2 p, out float nearestEntityDepth) {
+    float centerMask = sampleMaskAtShape(p);
+    float inside = step(MASK_THRESHOLD, centerMask);
+
+    float best = 1000.0;
+    nearestEntityDepth = inside > 0.5 ? sampleEntityDepthAtShape(p) : 1.0;
+
+    for (int directionIndex = 0; directionIndex < DIRECTION_COUNT; directionIndex++) {
+        float angle = 2.0 * PI * (float(directionIndex) / float(DIRECTION_COUNT));
+        vec2 dir = vec2(cos(angle), sin(angle));
+        float prevDist = 0.0;
+        float prevMask = centerMask;
+
         for (int stepIndex = 1; stepIndex <= STEP_COUNT; stepIndex++) {
             float shapeDist = SDF_SEARCH_RADIUS * (float(stepIndex) / float(STEP_COUNT));
-            float sampleInside = step(0.05, sampleMaskAtShape(p + dir * shapeDist));
+            vec2 sampleP = p + dir * shapeDist;
+            float sampleMaskValue = sampleMaskAtShape(sampleP);
+            float sampleInside = step(MASK_THRESHOLD, sampleMaskValue);
 
             if (abs(sampleInside - inside) > 0.5) {
-                best = min(best, shapeDist);
+                float denom = max(abs(sampleMaskValue - prevMask), 0.0001);
+                float t = clamp(abs(MASK_THRESHOLD - prevMask) / denom, 0.0, 1.0);
+                float hitDist = mix(prevDist, shapeDist, t);
+                vec2 hitP = p + dir * hitDist;
+                if (hitDist < best) {
+                    best = hitDist;
+                    nearestEntityDepth = sampleInside > 0.5
+                        ? sampleEntityDepthAtShape(hitP)
+                        : sampleEntityDepthAtShape(p);
+                }
                 break;
             }
+
+            prevDist = shapeDist;
+            prevMask = sampleMaskValue;
         }
     }
 
@@ -134,7 +192,8 @@ void main() {
     vec2 p = vUv * 2.0 - 1.0;
     p.x *= uAspect;
 
-    float d = standAuraSDF(p);
+    float nearestEntityDepth;
+    float d = standAuraSDF(p, nearestEntityDepth);
     float aa = max(uAntiAlias, 0.0001);
 
     vec2 q = p * mix(uNoiseScale, uNoiseScale * 1.25, CHAOS);
@@ -268,6 +327,11 @@ void main() {
         0.0,
         1.0
     ) * uGlobalAlpha;
+
+    float sceneDepth = sampleDepth(uSceneDepthTex, mix(uMaskUvMin, uMaskUvMax, vUv));
+    if (nearestEntityDepth < VALID_DEPTH_MAX && sceneDepth < nearestEntityDepth - DEPTH_BIAS) {
+        discard;
+    }
 
     if (alpha <= 0.001) {
         discard;

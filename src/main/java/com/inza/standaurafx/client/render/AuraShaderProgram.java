@@ -45,10 +45,15 @@ public final class AuraShaderProgram {
 
     private static final float[] SILVER = {0.95F, 0.97F, 1.00F};
     private static final float[] PALE_BLUE = {0.74F, 0.82F, 0.97F};
+    private static final int MASK_TEXTURE_UNIT = 0;
+    private static final int ENTITY_DEPTH_TEXTURE_UNIT = 4;
+    private static final int SCENE_DEPTH_TEXTURE_UNIT = 5;
 
     private static int programId = -1;
 
     private static int uMaskTex;
+    private static int uEntityDepthTex;
+    private static int uSceneDepthTex;
     private static int uTexelSize;
     private static int uMaskUvMin;
     private static int uMaskUvMax;
@@ -86,6 +91,8 @@ public final class AuraShaderProgram {
 
     public static void use(
         int maskTextureId,
+        int entityDepthTextureId,
+        int sceneDepthTextureId,
         int framebufferWidth,
         int framebufferHeight,
         int maskTextureWidth,
@@ -111,8 +118,14 @@ public final class AuraShaderProgram {
         GL20.glUseProgram(programId);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, maskTextureId);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + ENTITY_DEPTH_TEXTURE_UNIT);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, entityDepthTextureId);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + SCENE_DEPTH_TEXTURE_UNIT);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneDepthTextureId);
 
-        GL20.glUniform1i(uMaskTex, 0);
+        GL20.glUniform1i(uMaskTex, MASK_TEXTURE_UNIT);
+        GL20.glUniform1i(uEntityDepthTex, ENTITY_DEPTH_TEXTURE_UNIT);
+        GL20.glUniform1i(uSceneDepthTex, SCENE_DEPTH_TEXTURE_UNIT);
         GL20.glUniform2f(uTexelSize, 1.0F / Math.max(maskTextureWidth, 1), 1.0F / Math.max(maskTextureHeight, 1));
         GL20.glUniform2f(uMaskUvMin, 0.0F, 0.0F);
         GL20.glUniform2f(
@@ -157,6 +170,12 @@ public final class AuraShaderProgram {
 
     public static void stop() {
         GL20.glUseProgram(0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + SCENE_DEPTH_TEXTURE_UNIT);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + ENTITY_DEPTH_TEXTURE_UNIT);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
     }
 
     private static float[] liftedBaseColor(int color) {
@@ -213,6 +232,8 @@ public final class AuraShaderProgram {
 
         programId = linkedProgramId;
         uMaskTex = GL20.glGetUniformLocation(programId, "uMaskTex");
+        uEntityDepthTex = GL20.glGetUniformLocation(programId, "uEntityDepthTex");
+        uSceneDepthTex = GL20.glGetUniformLocation(programId, "uSceneDepthTex");
         uTexelSize = GL20.glGetUniformLocation(programId, "uTexelSize");
         uMaskUvMin = GL20.glGetUniformLocation(programId, "uMaskUvMin");
         uMaskUvMax = GL20.glGetUniformLocation(programId, "uMaskUvMax");

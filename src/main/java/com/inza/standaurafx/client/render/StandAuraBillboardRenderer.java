@@ -40,6 +40,7 @@ public final class StandAuraBillboardRenderer {
     private static final RenderType MASK_RENDER_TYPE = MaskRenderType.create();
 
     private static Framebuffer maskFramebuffer;
+    private static Framebuffer sceneDepthFramebuffer;
     private static boolean auraPassActive;
 
     private StandAuraBillboardRenderer() {
@@ -68,8 +69,9 @@ public final class StandAuraBillboardRenderer {
         }
 
         Framebuffer mainFramebuffer = minecraft.getFramebuffer();
-        ensureMaskFramebuffer(minecraft, mainFramebuffer.framebufferWidth, mainFramebuffer.framebufferHeight);
+        ensureFramebuffers(mainFramebuffer.framebufferWidth, mainFramebuffer.framebufferHeight);
         minecraft.getRenderTypeBuffers().getBufferSource().finish();
+        copySceneDepth(mainFramebuffer);
 
         List<StandEntity> stands = new ArrayList<>(QUEUED_STANDS.values());
         QUEUED_STANDS.clear();
@@ -99,19 +101,33 @@ public final class StandAuraBillboardRenderer {
         }
     }
 
-    private static void ensureMaskFramebuffer(Minecraft minecraft, int width, int height) {
-        if (maskFramebuffer == null) {
-            maskFramebuffer = new Framebuffer(width, height, true, Minecraft.IS_RUNNING_ON_MAC);
-            maskFramebuffer.setFramebufferFilter(GL11.GL_LINEAR);
-            maskFramebuffer.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
-            return;
+    private static void ensureFramebuffers(int width, int height) {
+        maskFramebuffer = ensureFramebuffer(maskFramebuffer, width, height);
+        sceneDepthFramebuffer = ensureFramebuffer(sceneDepthFramebuffer, width, height);
+    }
+
+    private static Framebuffer ensureFramebuffer(Framebuffer framebuffer, int width, int height) {
+        if (framebuffer == null) {
+            framebuffer = new Framebuffer(width, height, true, Minecraft.IS_RUNNING_ON_MAC);
+            framebuffer.setFramebufferFilter(GL11.GL_LINEAR);
+            framebuffer.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
+            return framebuffer;
         }
 
-        if (maskFramebuffer.framebufferWidth != width || maskFramebuffer.framebufferHeight != height) {
-            maskFramebuffer.resize(width, height, Minecraft.IS_RUNNING_ON_MAC);
-            maskFramebuffer.setFramebufferFilter(GL11.GL_LINEAR);
-            maskFramebuffer.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
+        if (framebuffer.framebufferWidth != width || framebuffer.framebufferHeight != height) {
+            framebuffer.resize(width, height, Minecraft.IS_RUNNING_ON_MAC);
+            framebuffer.setFramebufferFilter(GL11.GL_LINEAR);
+            framebuffer.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
         }
+
+        return framebuffer;
+    }
+
+    private static void copySceneDepth(Framebuffer mainFramebuffer) {
+        sceneDepthFramebuffer.bindFramebuffer(true);
+        sceneDepthFramebuffer.framebufferClear(Minecraft.IS_RUNNING_ON_MAC);
+        sceneDepthFramebuffer.func_237506_a_(mainFramebuffer);
+        mainFramebuffer.bindFramebuffer(true);
     }
 
     private static void renderStandMask(
@@ -173,6 +189,8 @@ public final class StandAuraBillboardRenderer {
         try {
             AuraShaderProgram.use(
                 maskFramebuffer.getFrameBufferTexture(),
+                maskFramebuffer.getDepthBuffer(),
+                sceneDepthFramebuffer.getDepthBuffer(),
                 framebufferWidth,
                 framebufferHeight,
                 maskFramebuffer.framebufferTextureWidth,
