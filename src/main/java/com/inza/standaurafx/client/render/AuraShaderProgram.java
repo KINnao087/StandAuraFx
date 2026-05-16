@@ -102,11 +102,11 @@ public final class AuraShaderProgram {
         float antiAlias = Math.max(2.0F / rectWidth, 2.0F / rectHeight);
         float aspect = rectWidth / rectHeight;
         float[] baseColor = liftedBaseColor(standColor);
-        float[] innerA = mix(baseColor, PALE_BLUE, 0.32F);
-        float[] innerB = mix(baseColor, SILVER, 0.52F);
-        float[] outerA = mix(baseColor, PALE_BLUE, 0.62F);
-        float[] outerB = mix(baseColor, SILVER, 0.78F);
-        float[] edge = mix(baseColor, SILVER, 0.88F);
+        float[] innerA = mix(baseColor, PALE_BLUE, 0.16F);
+        float[] innerB = mix(baseColor, SILVER, 0.28F);
+        float[] outerA = mix(baseColor, PALE_BLUE, 0.34F);
+        float[] outerB = mix(baseColor, SILVER, 0.48F);
+        float[] edge = mix(baseColor, SILVER, 0.62F);
 
         GL20.glUseProgram(programId);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);

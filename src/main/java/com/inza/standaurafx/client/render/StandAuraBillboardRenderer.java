@@ -1,5 +1,6 @@
 package com.inza.standaurafx.client.render;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -8,7 +9,9 @@ import java.util.Map;
 import org.lwjgl.opengl.GL11;
 
 import com.github.standobyte.jojo.entity.stand.StandEntity;
+import com.github.standobyte.jojo.entity.stand.StandEntityType;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
+import com.github.standobyte.jojo.power.impl.stand.type.StandType;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -30,6 +33,7 @@ public final class StandAuraBillboardRenderer {
     private static final Map<Integer, StandEntity> QUEUED_STANDS = new LinkedHashMap<>();
     private static final int FULL_BRIGHT = 0x00F000F0;
     private static final int FALLBACK_AURA_COLOR = 0x8B5CFF;
+    private static final Method STAND_ENTITY_TYPE_GET_STAND_TYPE = findStandTypeMethod();
     private static final float TIME_SCALE = 0.05F;
     private static final float DEFAULT_CHAOS = 0.2F;
     private static final float DEFAULT_ALPHA = 0.9F;
@@ -203,11 +207,41 @@ public final class StandAuraBillboardRenderer {
 
     @SuppressWarnings("deprecation")
     private static int resolveStandColor(StandEntity stand) {
+        StandType<?> registeredStandType = getRegisteredStandType(stand);
+        if (registeredStandType != null) {
+            return registeredStandType.getColor();
+        }
+
         IStandPower power = stand.getUserPower();
         if (power != null && power.hasPower() && power.getType() != null) {
             return power.getType().getColor();
         }
         return FALLBACK_AURA_COLOR;
+    }
+
+    private static Method findStandTypeMethod() {
+        try {
+            Method method = StandEntityType.class.getDeclaredMethod("getStandType");
+            method.setAccessible(true);
+            return method;
+        }
+        catch (ReflectiveOperationException exception) {
+            return null;
+        }
+    }
+
+    private static StandType<?> getRegisteredStandType(StandEntity stand) {
+        if (!(stand.getType() instanceof StandEntityType) || STAND_ENTITY_TYPE_GET_STAND_TYPE == null) {
+            return null;
+        }
+
+        try {
+            Object standType = STAND_ENTITY_TYPE_GET_STAND_TYPE.invoke(stand.getType());
+            return standType instanceof StandType ? (StandType<?>) standType : null;
+        }
+        catch (ReflectiveOperationException | RuntimeException exception) {
+            return null;
+        }
     }
 
     private static final class ForcedMaskBuffer implements IRenderTypeBuffer {
