@@ -18,6 +18,7 @@ uniform float uAspect;
 
 // Aura controls.
 uniform float uAntiAlias;
+uniform float uAuraThickness;
 uniform float uBaseAuraWidth;
 uniform float uAuraWidthChaos;
 uniform float uEdgeWarpStrength;
@@ -260,9 +261,11 @@ void main() {
     jag = pow(jag, mix(1.0, 1.35, CHAOS));
 
     float spikePulse =
-        mix(0.012, 0.020, CHAOS) * tongue1 +
-        mix(0.010, 0.018, CHAOS) * tongue2 +
-        mix(0.008, 0.016, CHAOS) * tongue3;
+        (
+            mix(0.012, 0.020, CHAOS) * tongue1 +
+            mix(0.010, 0.018, CHAOS) * tongue2 +
+            mix(0.008, 0.016, CHAOS) * tongue3
+        ) * uAuraThickness;
 
     float auraWidth =
         mix(uBaseAuraWidth, uBaseAuraWidth * 0.80, CHAOS) +
@@ -277,10 +280,10 @@ void main() {
     float shellPos = auraWidth + edgeWarp;
 
     float outerMask = 1.0 - smoothstep(shellPos - aa, shellPos + aa, d);
-    float innerCut = smoothstep(0.004, 0.018, d);
+    float innerCut = smoothstep(0.0005, 0.006, d);
     float auraBand = outerMask * innerCut * step(0.0, d);
 
-    float bandStart = 0.004;
+    float bandStart = 0.0005;
     float bandEnd = max(shellPos, bandStart + 0.001);
     float bandT = clamp((d - bandStart) / (bandEnd - bandStart), 0.0, 1.0);
 

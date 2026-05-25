@@ -1,12 +1,16 @@
 package com.inza.standaurafx.client;
 
-import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.inza.standaurafx.StandAuraFx;
 import com.inza.standaurafx.client.render.StandAuraBillboardRenderer;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientChatEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -21,16 +25,12 @@ public final class ClientAuraRenderEvents {
             return;
         }
 
-        if (!(event.getEntity() instanceof StandEntity)) {
+        Entity entity = event.getEntity();
+        if (!StandAuraBillboardRenderer.shouldRenderAutomaticAura(entity)) {
             return;
         }
 
-        StandEntity stand = (StandEntity) event.getEntity();
-        if (!shouldRenderAura(stand)) {
-            return;
-        }
-
-        StandAuraBillboardRenderer.queueStand(stand);
+        StandAuraBillboardRenderer.queueEntity(entity);
     }
 
     @SubscribeEvent
@@ -38,7 +38,27 @@ public final class ClientAuraRenderEvents {
         StandAuraBillboardRenderer.renderQueuedAuras(event);
     }
 
-    private static boolean shouldRenderAura(StandEntity stand) {
-        return true;
+    @SubscribeEvent
+    public static void onClientChat(ClientChatEvent event) {
+        AuraClientCommand.handle(event);
     }
+
+    @SubscribeEvent
+    public static void onClientLoggedIn(ClientPlayerNetworkEvent.LoggedInEvent event) {
+        registerClientCommands();
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            registerClientCommands();
+        }
+    }
+
+    private static void registerClientCommands() {
+        if (Minecraft.getInstance().getConnection() != null) {
+            AuraClientCommand.register(Minecraft.getInstance().getConnection().getCommandDispatcher());
+        }
+    }
+
 }

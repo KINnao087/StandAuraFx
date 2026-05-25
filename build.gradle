@@ -13,7 +13,7 @@ apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
 group = 'com.inza'
-version = '1.0.0'
+version = addon_version
 archivesBaseName = 'standaurafx'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(8)

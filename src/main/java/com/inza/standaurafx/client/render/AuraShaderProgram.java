@@ -23,33 +23,21 @@ public final class AuraShaderProgram {
     private static final ResourceLocation VERTEX_SHADER = new ResourceLocation(StandAuraFx.MOD_ID, "shaders/aura_billboard.vsh");
     private static final ResourceLocation FRAGMENT_SHADER = new ResourceLocation(StandAuraFx.MOD_ID, "shaders/aura_billboard.fsh");
 
-    private static final float DEFAULT_SHAPE_SCALE_X = 0.42F;
-    private static final float DEFAULT_SHAPE_SCALE_Y = 0.68F;
-    private static final float DEFAULT_SHAPE_OFFSET_X = 0.0F;
-    private static final float DEFAULT_SHAPE_OFFSET_Y = 0.05F;
-    private static final float DEFAULT_BASE_AURA_WIDTH = 0.050F;
-    private static final float DEFAULT_AURA_WIDTH_CHAOS = 0.028F;
-    private static final float DEFAULT_EDGE_WARP_STRENGTH = 0.010F;
-    private static final float DEFAULT_NOISE_SCALE = 10.0F;
-    private static final float DEFAULT_FILL_ALPHA_BASE = 0.16F;
-    private static final float DEFAULT_FILL_ALPHA_FLOW = 0.20F;
-    private static final float DEFAULT_CORE_ALPHA = 0.16F;
-    private static final float DEFAULT_EDGE_ALPHA_BASE = 0.80F;
-    private static final float DEFAULT_EDGE_ALPHA_FLOW = 0.25F;
-    private static final float DEFAULT_RIM_ALPHA = 0.42F;
-    private static final float DEFAULT_INNER_HIGHLIGHT_BASE = 0.35F;
-    private static final float DEFAULT_INNER_HIGHLIGHT_FLOW = 0.20F;
-    private static final float DEFAULT_OUTER_HIGHLIGHT_BASE = 0.70F;
-    private static final float DEFAULT_OUTER_HIGHLIGHT_FLOW = 0.25F;
-    private static final float DEFAULT_EDGE_HIGHLIGHT_STRENGTH = 0.55F;
-
     private static final float[] SILVER = {0.95F, 0.97F, 1.00F};
     private static final float[] PALE_BLUE = {0.74F, 0.82F, 0.97F};
     private static final int MASK_TEXTURE_UNIT = 0;
     private static final int ENTITY_DEPTH_TEXTURE_UNIT = 4;
     private static final int SCENE_DEPTH_TEXTURE_UNIT = 5;
+    private static final String BLIT_FRAGMENT_SHADER_SOURCE =
+        "#version 120\n" +
+        "uniform sampler2D uTexture;\n" +
+        "varying vec2 vUv;\n" +
+        "void main() {\n" +
+        "    gl_FragColor = texture2D(uTexture, vUv);\n" +
+        "}\n";
 
     private static int programId = -1;
+    private static int blitProgramId = -1;
 
     private static int uMaskTex;
     private static int uEntityDepthTex;
@@ -64,6 +52,7 @@ public final class AuraShaderProgram {
     private static int uShapeOffset;
     private static int uAspect;
     private static int uAntiAlias;
+    private static int uAuraThickness;
     private static int uBaseAuraWidth;
     private static int uAuraWidthChaos;
     private static int uEdgeWarpStrength;
@@ -85,6 +74,7 @@ public final class AuraShaderProgram {
     private static int uOuterHighlightBase;
     private static int uOuterHighlightFlow;
     private static int uEdgeHighlightStrength;
+    private static int uBlitTexture;
 
     private AuraShaderProgram() {
     }
@@ -93,21 +83,27 @@ public final class AuraShaderProgram {
         int maskTextureId,
         int entityDepthTextureId,
         int sceneDepthTextureId,
-        int framebufferWidth,
-        int framebufferHeight,
+        int outputFramebufferWidth,
+        int outputFramebufferHeight,
+        int sourceFramebufferWidth,
+        int sourceFramebufferHeight,
         int maskTextureWidth,
         int maskTextureHeight,
         int standColor,
         float time,
+        float auraThicknessScale,
         float chaos,
         float globalAlpha
     ) {
         ensureProgram();
 
-        float rectWidth = Math.max(framebufferWidth, 1.0F);
-        float rectHeight = Math.max(framebufferHeight, 1.0F);
-        float antiAlias = Math.max(2.0F / rectWidth, 2.0F / rectHeight);
-        float aspect = rectWidth / rectHeight;
+        float outputWidth = Math.max(outputFramebufferWidth, 1.0F);
+        float outputHeight = Math.max(outputFramebufferHeight, 1.0F);
+        float sourceWidth = Math.max(sourceFramebufferWidth, 1.0F);
+        float sourceHeight = Math.max(sourceFramebufferHeight, 1.0F);
+        float antiAlias = Math.max(2.0F / outputWidth, 2.0F / outputHeight);
+        float aspect = sourceWidth / sourceHeight;
+        float auraThickness = auraThicknessScale * AuraRuntimeSettings.auraThickness();
         float[] baseColor = liftedBaseColor(standColor);
         float[] innerA = mix(baseColor, PALE_BLUE, 0.16F);
         float[] innerB = mix(baseColor, SILVER, 0.28F);
@@ -130,29 +126,30 @@ public final class AuraShaderProgram {
         GL20.glUniform2f(uMaskUvMin, 0.0F, 0.0F);
         GL20.glUniform2f(
             uMaskUvMax,
-            Math.min((float) framebufferWidth / Math.max(maskTextureWidth, 1), 1.0F),
-            Math.min((float) framebufferHeight / Math.max(maskTextureHeight, 1), 1.0F)
+            Math.min((float) sourceFramebufferWidth / Math.max(maskTextureWidth, 1), 1.0F),
+            Math.min((float) sourceFramebufferHeight / Math.max(maskTextureHeight, 1), 1.0F)
         );
         GL20.glUniform1f(uTime, time);
         GL20.glUniform1f(uChaos, chaos);
         GL20.glUniform1f(uGlobalAlpha, globalAlpha);
 
-        GL20.glUniform2f(uShapeScale, DEFAULT_SHAPE_SCALE_X, DEFAULT_SHAPE_SCALE_Y);
-        GL20.glUniform2f(uShapeOffset, DEFAULT_SHAPE_OFFSET_X, DEFAULT_SHAPE_OFFSET_Y);
+        GL20.glUniform2f(uShapeScale, AuraRuntimeSettings.shapeScaleX(), AuraRuntimeSettings.shapeScaleY());
+        GL20.glUniform2f(uShapeOffset, AuraRuntimeSettings.shapeOffsetX(), AuraRuntimeSettings.shapeOffsetY());
         GL20.glUniform1f(uAspect, aspect);
         GL20.glUniform1f(uAntiAlias, antiAlias);
+        GL20.glUniform1f(uAuraThickness, auraThickness);
 
-        GL20.glUniform1f(uBaseAuraWidth, DEFAULT_BASE_AURA_WIDTH);
-        GL20.glUniform1f(uAuraWidthChaos, DEFAULT_AURA_WIDTH_CHAOS);
-        GL20.glUniform1f(uEdgeWarpStrength, DEFAULT_EDGE_WARP_STRENGTH);
-        GL20.glUniform1f(uNoiseScale, DEFAULT_NOISE_SCALE);
+        GL20.glUniform1f(uBaseAuraWidth, AuraRuntimeSettings.baseAuraWidth() * auraThickness);
+        GL20.glUniform1f(uAuraWidthChaos, AuraRuntimeSettings.auraWidthChaos() * auraThickness);
+        GL20.glUniform1f(uEdgeWarpStrength, AuraRuntimeSettings.edgeWarpStrength() * auraThickness);
+        GL20.glUniform1f(uNoiseScale, AuraRuntimeSettings.noiseScale());
 
-        GL20.glUniform1f(uFillAlphaBase, DEFAULT_FILL_ALPHA_BASE);
-        GL20.glUniform1f(uFillAlphaFlow, DEFAULT_FILL_ALPHA_FLOW);
-        GL20.glUniform1f(uCoreAlpha, DEFAULT_CORE_ALPHA);
-        GL20.glUniform1f(uEdgeAlphaBase, DEFAULT_EDGE_ALPHA_BASE);
-        GL20.glUniform1f(uEdgeAlphaFlow, DEFAULT_EDGE_ALPHA_FLOW);
-        GL20.glUniform1f(uRimAlpha, DEFAULT_RIM_ALPHA);
+        GL20.glUniform1f(uFillAlphaBase, AuraRuntimeSettings.fillAlphaBase());
+        GL20.glUniform1f(uFillAlphaFlow, AuraRuntimeSettings.fillAlphaFlow());
+        GL20.glUniform1f(uCoreAlpha, AuraRuntimeSettings.coreAlpha());
+        GL20.glUniform1f(uEdgeAlphaBase, AuraRuntimeSettings.edgeAlphaBase());
+        GL20.glUniform1f(uEdgeAlphaFlow, AuraRuntimeSettings.edgeAlphaFlow());
+        GL20.glUniform1f(uRimAlpha, AuraRuntimeSettings.rimAlpha());
 
         GL20.glUniform3f(uInnerColorA, innerA[0], innerA[1], innerA[2]);
         GL20.glUniform3f(uInnerColorB, innerB[0], innerB[1], innerB[2]);
@@ -161,11 +158,11 @@ public final class AuraShaderProgram {
         GL20.glUniform3f(uEdgeColor, edge[0], edge[1], edge[2]);
         GL20.glUniform3f(uRimColor, SILVER[0], SILVER[1], SILVER[2]);
 
-        GL20.glUniform1f(uInnerHighlightBase, DEFAULT_INNER_HIGHLIGHT_BASE);
-        GL20.glUniform1f(uInnerHighlightFlow, DEFAULT_INNER_HIGHLIGHT_FLOW);
-        GL20.glUniform1f(uOuterHighlightBase, DEFAULT_OUTER_HIGHLIGHT_BASE);
-        GL20.glUniform1f(uOuterHighlightFlow, DEFAULT_OUTER_HIGHLIGHT_FLOW);
-        GL20.glUniform1f(uEdgeHighlightStrength, DEFAULT_EDGE_HIGHLIGHT_STRENGTH);
+        GL20.glUniform1f(uInnerHighlightBase, AuraRuntimeSettings.innerHighlightBase());
+        GL20.glUniform1f(uInnerHighlightFlow, AuraRuntimeSettings.innerHighlightFlow());
+        GL20.glUniform1f(uOuterHighlightBase, AuraRuntimeSettings.outerHighlightBase());
+        GL20.glUniform1f(uOuterHighlightFlow, AuraRuntimeSettings.outerHighlightFlow());
+        GL20.glUniform1f(uEdgeHighlightStrength, AuraRuntimeSettings.edgeHighlightStrength());
     }
 
     public static void stop() {
@@ -176,6 +173,15 @@ public final class AuraShaderProgram {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+    }
+
+    public static void useTextureBlit(int textureId) {
+        ensureBlitProgram();
+
+        GL20.glUseProgram(blitProgramId);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+        GL20.glUniform1i(uBlitTexture, 0);
     }
 
     private static float[] liftedBaseColor(int color) {
@@ -244,6 +250,7 @@ public final class AuraShaderProgram {
         uShapeOffset = GL20.glGetUniformLocation(programId, "uShapeOffset");
         uAspect = GL20.glGetUniformLocation(programId, "uAspect");
         uAntiAlias = GL20.glGetUniformLocation(programId, "uAntiAlias");
+        uAuraThickness = GL20.glGetUniformLocation(programId, "uAuraThickness");
         uBaseAuraWidth = GL20.glGetUniformLocation(programId, "uBaseAuraWidth");
         uAuraWidthChaos = GL20.glGetUniformLocation(programId, "uAuraWidthChaos");
         uEdgeWarpStrength = GL20.glGetUniformLocation(programId, "uEdgeWarpStrength");
@@ -271,17 +278,59 @@ public final class AuraShaderProgram {
         int shaderId = GL20.glCreateShader(type);
         String shaderSource = readShaderSource(shaderLocation);
 
+        compileShaderSource(shaderId, shaderSource, shaderKind + " shader " + shaderLocation);
+
+        return shaderId;
+    }
+
+    private static int compileShader(int type, String shaderSource, String shaderName) {
+        int shaderId = GL20.glCreateShader(type);
+        compileShaderSource(shaderId, shaderSource, shaderName);
+        return shaderId;
+    }
+
+    private static void compileShaderSource(int shaderId, String shaderSource, String shaderDescription) {
+
         GL20.glShaderSource(shaderId, shaderSource);
         GL20.glCompileShader(shaderId);
 
         if (GL20.glGetShaderi(shaderId, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
             String infoLog = GL20.glGetShaderInfoLog(shaderId, 8192);
-            LOGGER.error("Failed to compile {} shader {}:\n{}", shaderKind, shaderLocation, infoLog);
+            LOGGER.error("Failed to compile {}:\n{}", shaderDescription, infoLog);
             GL20.glDeleteShader(shaderId);
-            throw new IllegalStateException("Failed to compile " + shaderKind + " shader " + shaderLocation + ":\n" + infoLog);
+            throw new IllegalStateException("Failed to compile " + shaderDescription + ":\n" + infoLog);
+        }
+    }
+
+    private static void ensureBlitProgram() {
+        if (blitProgramId != -1) {
+            return;
         }
 
-        return shaderId;
+        int vertexShaderId = compileShader(GL20.GL_VERTEX_SHADER, VERTEX_SHADER, "blit vertex");
+        int fragmentShaderId = compileShader(GL20.GL_FRAGMENT_SHADER, BLIT_FRAGMENT_SHADER_SOURCE, "blit fragment");
+        int linkedProgramId = GL20.glCreateProgram();
+
+        GL20.glAttachShader(linkedProgramId, vertexShaderId);
+        GL20.glAttachShader(linkedProgramId, fragmentShaderId);
+        GL20.glLinkProgram(linkedProgramId);
+
+        if (GL20.glGetProgrami(linkedProgramId, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+            String infoLog = GL20.glGetProgramInfoLog(linkedProgramId, 8192);
+            LOGGER.error("Failed to link aura blit shader program:\n{}", infoLog);
+            GL20.glDeleteProgram(linkedProgramId);
+            GL20.glDeleteShader(vertexShaderId);
+            GL20.glDeleteShader(fragmentShaderId);
+            throw new IllegalStateException("Failed to link aura blit shader program:\n" + infoLog);
+        }
+
+        GL20.glDetachShader(linkedProgramId, vertexShaderId);
+        GL20.glDetachShader(linkedProgramId, fragmentShaderId);
+        GL20.glDeleteShader(vertexShaderId);
+        GL20.glDeleteShader(fragmentShaderId);
+
+        blitProgramId = linkedProgramId;
+        uBlitTexture = GL20.glGetUniformLocation(blitProgramId, "uTexture");
     }
 
     private static String readShaderSource(ResourceLocation shaderLocation) {
