@@ -32,6 +32,7 @@ forge*changelog.txt
 # dependency jars (keep folder structure, ignore jars)
 libs/*.jar
 libs/local
+libs
 
 # decompilation output
 tmp
@@ -43,3 +44,7 @@ Thumbs.db
 # mc
 crash-reports
 *.log
+
+.gradle-user-home
+
+.gitignore
